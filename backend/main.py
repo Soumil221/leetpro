@@ -354,7 +354,7 @@ async def get_ai_mentoring(profile_analysis: str) -> str:
         
         # Initialize the model with proper configuration
         model = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
+            model="gemini-2.0-flash-exp",
             google_api_key=os.environ.get("GOOGLE_API_KEY"),
             temperature=0.7,
             convert_system_message_to_human=True  # This fixes the "Unknown field for Part: thought" error
@@ -385,19 +385,48 @@ Be encouraging but honest about areas that need improvement. Provide specific, a
 
 def generate_manual_mentoring(profile_analysis: str) -> str:
     """Generate manual mentoring suggestions based on profile analysis"""
+    import re
     
-    # Extract key metrics from the analysis
-    mentoring_suggestions = """
+    # Extract metrics from profile_analysis text
+    def extract_value(pattern, text, default="N/A"):
+        match = re.search(pattern, text, re.IGNORECASE)
+        return match.group(1).strip() if match else default
+    
+    # Parse metrics
+    total_problems = extract_value(r"All:\s*(\d+)", profile_analysis, "0")
+    easy = extract_value(r"Easy:\s*(\d+)", profile_analysis, "0")
+    medium = extract_value(r"Medium:\s*(\d+)", profile_analysis, "0")
+    hard = extract_value(r"Hard:\s*(\d+)", profile_analysis, "0")
+    streak = extract_value(r"Current Streak:\s*(\d+)", profile_analysis, "0")
+    contests = extract_value(r"Contests Attended:\s*(\d+)", profile_analysis, "0")
+    rating = extract_value(r"Current Rating:\s*([\d.]+)", profile_analysis, "N/A")
+    
+    # Extract top language
+    lang_match = re.search(r"PROGRAMMING LANGUAGES:(.+?)(?=\n\n|📊|$)", profile_analysis, re.DOTALL)
+    top_lang = "Python/C++" if not lang_match else extract_value(r"-\s*(\w+):", lang_match.group(1), "Python/C++")
+    
+    # Extract top skills
+    skills_match = re.search(r"TOP FUNDAMENTAL SKILLS:(.+?)(?=\n\n|🐢|$)", profile_analysis, re.DOTALL)
+    top_skills = []
+    if skills_match:
+        skill_lines = skills_match.group(1).strip().split('\n')[:3]
+        for line in skill_lines:
+            skill = re.search(r"-\s*([^:]+):", line)
+            if skill:
+                top_skills.append(skill.group(1).strip())
+    
+    # Build dynamic mentoring
+    mentoring_suggestions = f"""
 🎯 PERSONALIZED DSA MENTORING SUGGESTIONS
 
 Based on your LeetCode profile analysis, here are my recommendations:
 
 📊 STRENGTHS IDENTIFIED:
-✅ Solid foundation with 326 problems solved
-✅ Strong in fundamental areas: Arrays (178), Strings (63), Two Pointers (49)
-✅ Good medium problem solving skills (200 medium problems)
-✅ Consistent practice with 6-day current streak
-✅ Primarily using C++ which is excellent for competitive programming
+✅ Solid foundation with {total_problems} problems solved
+✅ Strong fundamentals: {', '.join(top_skills) if top_skills else 'Core data structures'}
+✅ Good problem variety: {easy} easy, {medium} medium, {hard} hard
+✅ Consistent practice with {streak}-day current streak
+✅ Primary language: {top_lang}
 
 🎯 AREAS FOR IMPROVEMENT:
 
@@ -407,18 +436,14 @@ Based on your LeetCode profile analysis, here are my recommendations:
    - Recommended: Solve 10-15 problems in each area
 
 2. CONTEST PARTICIPATION (Priority: HIGH)
-   - Only 3 contests attended - aim for weekly participation
-   - Current rating (1543) shows potential, but needs consistency
+   - {contests} contests attended - aim for weekly participation
+   - Current rating ({rating}) shows potential, but needs consistency
    - Target: Participate in 2-3 contests monthly
 
 3. HARD PROBLEMS (Priority: MEDIUM)
-   - Only 22 hard problems solved
+   - Only {hard} hard problems solved
    - Aim for 1-2 hard problems weekly
    - Focus on Dynamic Programming and Graph Theory
-
-4. QUEUE MASTERY (Priority: LOW)
-   - Only 5 queue problems solved
-   - Important for BFS and system design
 
 📚 RECOMMENDED STUDY PLAN:
 
@@ -440,18 +465,18 @@ WEEK 7-8: Hard Problem Focus
 - Graph Theory: 4 hard problems
 
 🏆 CONTEST STRATEGY:
-- Your current rating (1543) suggests you're at Specialist level
+- Your current rating ({rating}) shows potential at your level
 - Focus on solving A, B, C problems quickly
-- Aim for Expert level (1600+) in next 3 months
+- Aim to increase rating by 200-300 points in next 3 months
 
 💼 CAREER DEVELOPMENT:
-- Your C++ skills are strong for system programming roles
+- Your {top_lang} skills are valuable for interviews
 - Consider learning system design concepts
-- 326 problems solved shows dedication - highlight this in interviews
+- {total_problems} problems solved shows dedication - highlight this in interviews
 
 🎯 IMMEDIATE ACTION ITEMS:
 1. Register for this week's contest
-2. Start with Trie problems (aim for 2-3 this week)
+2. Solve 2-3 advanced data structure problems this week
 3. Join a study group or find a practice partner
 4. Set up a regular practice schedule (1-2 hours daily)
 
